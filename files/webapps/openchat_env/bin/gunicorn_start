@@ -1,0 +1,45 @@
+#!/bin/sh
+
+WORKON_HOME="/webapps"
+NAME="openchat"
+VENV_NAME="$NAME"_env
+WSGI_MODULE="$NAME".wsgi
+DJANGODIR="$WORKON_HOME/$VENV_NAME/$NAME"
+SOCKFILE="$WORKON_HOME/$VENV_NAME/run/gunicorn.sock"
+USER=$NAME
+GROUP=webapps
+NUM_WORKERS=32
+
+# Set this to 0 for unlimited requests. During development, you might want to
+# set this to 1 to automatically restart the process on each request (i.e. your
+# code will be reloaded on every request).
+MAX_REQUESTS=9
+
+echo "Starting app $NAME in $DJANGODIR as user "`whoami`" in from script in "`pwd`
+
+cd $DJANGODIR
+# Activate the virtual environment.
+. ../bin/activate
+
+cd $DJANGODIR
+# Set additional environment variables.
+. ../bin/postactivate
+
+echo "finished postactivate"
+
+echo "Starting app $NAME in $DJANGODIR with exec gunicorn --name $NAME --workers $NUM_WORKERS --max-requests $MAX_REQUESTS --user $USER --group $GROUP --log-level info --bind unix:$SOCKFILE $WSGI_MODULE"
+
+# Create the run directory if it doesn't exist.
+RUNDIR=$(dirname $SOCKFILE)
+test -d $RUNDIR || mkdir -p $RUNDIR
+
+# Programs meant to be run under supervisor should not daemonize themselves
+# (do not use --daemon).
+exec gunicorn \
+    --name $NAME \
+    --workers $NUM_WORKERS \
+    --max-requests $MAX_REQUESTS \
+    --user $USER --group $GROUP \
+    --log-level debug \
+    --bind unix:$SOCKFILE \
+    $WSGI_MODULE
